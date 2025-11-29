@@ -435,4 +435,8 @@ app.get('/api/class/:classId/check', (req, res) => {
 });
 
 /* ---------- Start server ---------- */
-server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌐 Server accessible at: http://0.0.0.0:${PORT}`);
+  console.log(`📡 Socket.io ready for connections`);
+});
