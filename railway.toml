@@ -1,0 +1,15 @@
+# Railway Config-as-Code
+# This file tells Railway how to deploy your services
+
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+startCommand = ""
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Services configuration
+# Railway will deploy each service defined in docker-compose.yml
+# Each service needs its own Dockerfile in its directory
+
