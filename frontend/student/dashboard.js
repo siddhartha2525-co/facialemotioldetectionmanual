@@ -1,21 +1,37 @@
 // Auto-detect backend URL based on current host (works for localhost, IP, and cloud deployment)
-// Supports both HTTP and HTTPS, and handles cloud deployment where backend might be on same domain
+// Supports both HTTP and HTTPS, and handles Railway deployment where services are separate
 const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
 const hostname = window.location.hostname;
 const port = window.location.port;
 
-// For cloud deployment: if on same domain (no port in URL), backend might be on same domain
-// For local/IP: use explicit port
+// For Railway: services are separate, so we need to construct backend URL
+// Option 1: Use environment variable if set (Railway can inject this)
+// Option 2: Try to infer from current hostname
+// Option 3: Use service name for Railway internal discovery (if same project)
 let BACKEND_URL;
-if (hostname === 'localhost' || hostname.match(/^192\.168\.|^10\.|^172\./)) {
+
+// Check for Railway environment variable or explicit backend URL
+if (window.EMOTION_BACKEND_URL) {
+    BACKEND_URL = window.EMOTION_BACKEND_URL;
+} else if (hostname === 'localhost' || hostname.match(/^192\.168\.|^10\.|^172\./)) {
     // Local network - use explicit port
     const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
     BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
+} else if (hostname.includes('railway.app')) {
+    // Railway deployment - services are separate
+    // Try to construct backend URL from frontend URL
+    // If frontend is emotion-frontend.railway.app, backend might be emotion-backend.railway.app
+    if (hostname.includes('emotion-frontend')) {
+        BACKEND_URL = hostname.replace('emotion-frontend', 'emotion-backend') + ':5001';
+        BACKEND_URL = `${protocol}//${BACKEND_URL}`;
+    } else {
+        // Fallback: use same hostname with port (might work if behind reverse proxy)
+        const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
+        BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
+    }
 } else {
-    // Cloud deployment - backend might be on same domain or subdomain
-    // Try same domain first (for reverse proxy setups), fallback to port
+    // Other cloud deployments - try same domain with port
     const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
-    // For cloud: try same domain with port, or use API subdomain pattern
     BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
 }
 

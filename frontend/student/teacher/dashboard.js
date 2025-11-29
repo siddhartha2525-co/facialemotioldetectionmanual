@@ -1,10 +1,36 @@
 // Auto-detect backend URL based on current host (works for localhost, IP, and cloud deployment)
-// Supports both HTTP and HTTPS
+// Supports both HTTP and HTTPS, and handles Railway deployment where services are separate
 const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-const BACKEND_HOST = window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname;
-// For cloud deployment, backend is on same host but different port, or use environment variable
-const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
-const BACKEND_URL = `${protocol}//${BACKEND_HOST}:${BACKEND_PORT}`;
+const hostname = window.location.hostname;
+const port = window.location.port;
+
+// For Railway: services are separate, so we need to construct backend URL
+let BACKEND_URL;
+
+// Check for Railway environment variable or explicit backend URL
+if (window.EMOTION_BACKEND_URL) {
+    BACKEND_URL = window.EMOTION_BACKEND_URL;
+} else if (hostname === 'localhost' || hostname.match(/^192\.168\.|^10\.|^172\./)) {
+    // Local network - use explicit port
+    const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
+    BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
+} else if (hostname.includes('railway.app')) {
+    // Railway deployment - services are separate
+    // Try to construct backend URL from frontend URL
+    if (hostname.includes('emotion-frontend')) {
+        BACKEND_URL = hostname.replace('emotion-frontend', 'emotion-backend') + ':5001';
+        BACKEND_URL = `${protocol}//${BACKEND_URL}`;
+    } else {
+        // Fallback: use same hostname with port
+        const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
+        BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
+    }
+} else {
+    // Other cloud deployments - try same domain with port
+    const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
+    BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
+}
+
 const WS_URL = BACKEND_URL.replace('http://', 'ws://').replace('https://', 'wss://');
 const socket = io(WS_URL, { 
     autoConnect: false,
