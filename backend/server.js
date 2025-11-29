@@ -9,10 +9,27 @@ const { Server } = require('socket.io');
 
 const app = express();
 app.use(express.json({ limit: '12mb' }));
-app.use(cors());
+// Enhanced CORS for Railway deployment
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+// Enhanced Socket.io configuration for Railway
+const io = new Server(server, { 
+  cors: { 
+    origin: '*',
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
 
 const PORT = process.env.PORT || 5001;
 const PY_API = process.env.PY_API || 'http://localhost:8000/analyze';
