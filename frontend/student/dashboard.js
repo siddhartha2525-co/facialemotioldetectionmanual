@@ -19,15 +19,18 @@ if (window.EMOTION_BACKEND_URL) {
     BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
 } else if (hostname.includes('railway.app')) {
     // Railway deployment - services are separate
-    // Try to construct backend URL from frontend URL
-    // If frontend is emotion-frontend.railway.app, backend might be emotion-backend.railway.app
+    // Railway HTTPS URLs don't use port numbers (they use port 443 automatically)
+    // If frontend is emotion-frontend.railway.app, backend is emotion-backend.railway.app
     if (hostname.includes('emotion-frontend')) {
-        BACKEND_URL = hostname.replace('emotion-frontend', 'emotion-backend') + ':5001';
-        BACKEND_URL = `${protocol}//${BACKEND_URL}`;
+        // Replace 'emotion-frontend' with 'emotion-backend' - NO PORT NUMBER for HTTPS
+        const backendHostname = hostname.replace('emotion-frontend', 'emotion-backend');
+        BACKEND_URL = `${protocol}//${backendHostname}`;
     } else {
-        // Fallback: use same hostname with port (might work if behind reverse proxy)
+        // Fallback: try to use same hostname (might work if services share domain)
+        // Or use explicit backend URL if known
         const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
-        BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
+        BACKEND_URL = `${protocol}//${hostname}${port ? ':' + port : ''}`;
+        console.warn("⚠️ Could not determine backend URL from hostname. Using:", BACKEND_URL);
     }
 } else {
     // Other cloud deployments - try same domain with port
@@ -35,12 +38,18 @@ if (window.EMOTION_BACKEND_URL) {
     BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
 }
 
+// Log backend URL for debugging
+console.log("🔗 Backend URL:", BACKEND_URL);
+
 const WS_URL = BACKEND_URL.replace('http://', 'ws://').replace('https://', 'wss://');
+console.log("🔌 WebSocket URL:", WS_URL);
+
 const socket = io(WS_URL, { 
     autoConnect: false,
     reconnection: true,
     reconnectionDelay: 1000,
-    reconnectionAttempts: 5
+    reconnectionAttempts: 5,
+    timeout: 10000 // 10 seconds timeout
 });
 
 let stream = null;
@@ -322,6 +331,11 @@ document.getElementById("joinClassBtn").onclick = async () => {
             
             socket.once("connect_error", (err) => {
                 clearTimeout(timeout);
+                console.error("❌ Connection error during join:", err);
+                console.error("❌ Backend URL:", BACKEND_URL);
+                console.error("❌ WebSocket URL:", WS_URL);
+                statusEl.innerText = `❌ Failed to connect to backend.\n\nBackend: ${BACKEND_URL}\n\nPlease check:\n1. Backend service is running\n2. Network connection is active`;
+                statusEl.style.color = "red";
                 reject(err);
             });
         });
@@ -480,7 +494,13 @@ socket.on("teacher_video_stopped", () => {
 
 // Handle connection errors
 socket.on("connect_error", (error) => {
-    console.error("Socket connection error:", error);
+    console.error("❌ Socket connection error:", error);
+    console.error("❌ Attempted to connect to:", WS_URL);
+    const statusEl = document.getElementById("statusText");
+    if (statusEl) {
+        statusEl.innerText = `❌ Connection failed. Backend: ${BACKEND_URL}`;
+        statusEl.style.color = "red";
+    }
     const statusEl = document.getElementById("statusText");
     if (statusEl) {
         statusEl.innerText = "❌ Connection failed: " + (error.message || "Unable to connect to server");

@@ -16,14 +16,18 @@ if (window.EMOTION_BACKEND_URL) {
     BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
 } else if (hostname.includes('railway.app')) {
     // Railway deployment - services are separate
-    // Try to construct backend URL from frontend URL
+    // Railway HTTPS URLs don't use port numbers (they use port 443 automatically)
+    // If frontend is emotion-frontend.railway.app, backend is emotion-backend.railway.app
     if (hostname.includes('emotion-frontend')) {
-        BACKEND_URL = hostname.replace('emotion-frontend', 'emotion-backend') + ':5001';
-        BACKEND_URL = `${protocol}//${BACKEND_URL}`;
+        // Replace 'emotion-frontend' with 'emotion-backend' - NO PORT NUMBER for HTTPS
+        const backendHostname = hostname.replace('emotion-frontend', 'emotion-backend');
+        BACKEND_URL = `${protocol}//${backendHostname}`;
     } else {
-        // Fallback: use same hostname with port
+        // Fallback: try to use same hostname (might work if services share domain)
+        // Or use explicit backend URL if known
         const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
-        BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
+        BACKEND_URL = `${protocol}//${hostname}${port ? ':' + port : ''}`;
+        console.warn("⚠️ Could not determine backend URL from hostname. Using:", BACKEND_URL);
     }
 } else {
     // Other cloud deployments - try same domain with port
@@ -31,12 +35,18 @@ if (window.EMOTION_BACKEND_URL) {
     BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
 }
 
+// Log backend URL for debugging
+console.log("🔗 Backend URL:", BACKEND_URL);
+
 const WS_URL = BACKEND_URL.replace('http://', 'ws://').replace('https://', 'wss://');
+console.log("🔌 WebSocket URL:", WS_URL);
+
 const socket = io(WS_URL, { 
     autoConnect: false,
     reconnection: true,
     reconnectionDelay: 1000,
-    reconnectionAttempts: 5
+    reconnectionAttempts: 5,
+    timeout: 10000 // 10 seconds timeout
 });
 
 let selectedStudentId = null;
@@ -193,7 +203,8 @@ socket.on("disconnect", () => {
 
 socket.on("connect_error", (error) => {
     console.error("❌ Teacher socket connection error:", error);
-    alert("Failed to connect to server. Make sure backend is running on port 5001.");
+    console.error("❌ Attempted to connect to:", WS_URL);
+    alert(`Failed to connect to server.\n\nBackend URL: ${BACKEND_URL}\nWebSocket URL: ${WS_URL}\n\nPlease check:\n1. Backend service is running in Railway\n2. Backend URL is correct\n3. Network connection is active`);
 });
 
 // Connect socket on page load and auto-join default class
