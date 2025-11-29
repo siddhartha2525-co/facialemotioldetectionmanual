@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Teacher Dashboard</title>
+  <link rel="stylesheet" href="teacher.css">
+  <script src="https://cdn.socket.io/4.7.0/socket.io.min.js"></script>
+</head>
+
+<body class="dash-body">
+
+<header class="topnav">
+  <div class="nav-left">
+    <div class="logo-icon">⏸</div>
+    <h2 class="nav-title">Teacher Dashboard</h2>
+  </div>
+
+  <div class="nav-right">
+    <button id="startTeacherVideoBtn" class="btn-ghost">Start Video</button>
+    <button id="stopTeacherVideoBtn" class="btn-ghost" style="display: none;">Stop Video</button>
+    <button id="startDetectionBtn" class="btn-primary">Start Detection</button>
+    <button id="stopDetectionBtn" class="btn-ghost" style="display: none;">Stop Detection</button>
+    <button id="classIdBtn" class="btn-ghost">Class-ID</button>
+    <button id="loadRoster" class="btn-ghost">Load Roster</button>
+    <input id="classInput" placeholder="Class ID" value="CLASS1" style="display: none;">
+    <button id="logoutBtn" class="btn-ghost">Logout</button>
+  </div>
+</header>
+
+<div class="main-grid">
+
+  <!-- STUDENT GRID -->
+  <div class="student-grid-container">
+    <div class="filter-dropdown">
+      <select id="filterSelect">
+        <option value="all">All Students</option>
+        <option value="live">0 Live</option>
+      </select>
+    </div>
+    <div class="student-grid" id="studentsContainer"></div>
+  </div>
+
+  <!-- DETAILS PANEL -->
+  <div class="details-panel" id="detailsPanel">
+    <h3>Select a student</h3>
+    <p>Click a student to view full analytics.</p>
+  </div>
+
+</div>
+
+<!-- EVENTS TIMELINE -->
+<div class="events-card">
+  <h3>Recent Events</h3>
+  <div id="eventsList" class="timeline"></div>
+</div>
+
+<script src="dashboard.js"></script>
+</body>
+</html>

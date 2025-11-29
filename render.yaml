@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: emotion-frontend
+    env: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    envVars:
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /login.html
+
+  - type: web
+    name: emotion-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: PORT
+        value: 5001
+      - key: NODE_ENV
+        value: production
+      - key: PY_API
+        fromService:
+          name: emotion-ai
+          type: web
+          property: host
+        value: http://emotion-ai:8000/analyze
+      - key: MONGO_URI
+        sync: false
+    healthCheckPath: /api/health
+
+  - type: web
+    name: emotion-ai
+    env: docker
+    dockerfilePath: ./python-ai/Dockerfile
+    dockerContext: ./python-ai
+    envVars:
+      - key: PORT
+        value: 8000
+    healthCheckPath: /health
+

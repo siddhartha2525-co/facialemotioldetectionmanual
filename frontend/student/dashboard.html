@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="student.css">
+    <script src="https://cdn.socket.io/4.7.0/socket.io.min.js"></script>
+</head>
+
+<body>
+
+<header class="topnav">
+    <h2 class="nav-title">Student Dashboard</h2>
+    <button id="logoutBtn" class="btn-ghost">Logout</button>
+</header>
+
+<div class="main">
+
+    <!-- Teacher Video Feed -->
+    <div class="card teacher-video-card">
+        <h2>Live Class</h2>
+        <div class="teacher-video-container">
+            <img id="teacherVideo" alt="Teacher Video Feed">
+            <div id="teacherVideoPlaceholder" class="video-placeholder">
+                <p>Waiting for teacher to start class...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Pre-Class Checklist</h2>
+
+        <h3>Your Camera</h3>
+        <div class="camera-box">
+            <video id="localVideo" autoplay muted playsinline></video>
+        </div>
+
+        <div style="margin-top:12px;">
+            <button id="startCam" class="btn-primary">Enable Camera</button>
+            <button id="stopCam" class="btn-ghost">Stop Camera</button>
+        </div>
+
+        <h3 style="margin-top:16px;">Join Class</h3>
+
+        <div class="input-group">
+            <label>Class ID</label>
+            <input id="classId" value="CLASS1">
+        </div>
+
+        <label class="toggle">
+            <input type="checkbox" id="withVideo" checked>
+            Join with video
+        </label>
+
+        <button id="joinClassBtn" class="btn-primary">Join Class</button>
+
+        <p id="statusText" class="status-msg">Not Joined</p>
+
+        <hr style="margin:18px 0;">
+
+        <h3>Interaction</h3>
+
+        <button id="raiseHandBtn" class="btn-ghost">✋ Raise Hand</button>
+        <button id="askDoubtBtn" class="btn-ghost">❓ Ask a Doubt</button>
+
+        <div id="doubtPopup" class="popup hidden">
+            <h4>Ask a Doubt</h4>
+            <textarea id="doubtText"></textarea>
+            <button id="sendDoubtBtn" class="btn-primary">Send</button>
+            <button id="closePopup" class="btn-ghost">Cancel</button>
+        </div>
+
+        <hr style="margin:18px 0;">
+
+        <h3>Class Notes</h3>
+        <div class="notes-box">
+            <textarea id="notesArea" placeholder="Your notes..."></textarea>
+        </div>
+
+        <button id="downloadNotesBtn" class="btn-primary">Download Notes</button>
+
+    </div>
+</div>
+
+<script src="dashboard.js"></script>
+
+</body>
+</html>

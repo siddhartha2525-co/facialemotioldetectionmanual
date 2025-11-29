@@ -1,0 +1,34 @@
+{
+  "name": "Facial Emotion Detection",
+  "description": "Real-time facial emotion detection for EdTech platform",
+  "repository": "https://github.com/yourusername/your-repo",
+  "logo": "https://node-js-sample.herokuapp.com/node.png",
+  "keywords": ["emotion", "detection", "edtech", "facial", "ai"],
+  "image": "heroku/nodejs",
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "env": {
+    "PORT": {
+      "description": "Port for backend server",
+      "value": "5001"
+    },
+    "MONGO_URI": {
+      "description": "MongoDB Atlas connection string",
+      "required": true
+    },
+    "PY_API": {
+      "description": "Python AI service URL",
+      "value": "http://emotion-ai:8000/analyze"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+}
+
