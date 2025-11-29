@@ -71,8 +71,11 @@ const socket = io(WS_URL, {
     autoConnect: false,
     reconnection: true,
     reconnectionDelay: 1000,
-    reconnectionAttempts: 5,
-    timeout: 10000 // 10 seconds timeout
+    reconnectionAttempts: 10, // More attempts for mobile
+    timeout: 20000, // 20 seconds timeout for mobile networks
+    transports: ['websocket', 'polling'], // Try both transports
+    upgrade: true,
+    rememberUpgrade: true
 });
 
 let selectedStudentId = null;
@@ -229,8 +232,26 @@ socket.on("disconnect", () => {
 
 socket.on("connect_error", (error) => {
     console.error("❌ Teacher socket connection error:", error);
+    console.error("❌ Error details:", {
+        message: error.message,
+        type: error.type,
+        description: error.description
+    });
     console.error("❌ Attempted to connect to:", WS_URL);
-    alert(`Failed to connect to server.\n\nBackend URL: ${BACKEND_URL}\nWebSocket URL: ${WS_URL}\n\nPlease check:\n1. Backend service is running in Railway\n2. Backend URL is correct\n3. Network connection is active`);
+    console.error("❌ Backend URL:", BACKEND_URL);
+    
+    // Show user-friendly error message
+    const errorMsg = `Failed to connect to server.\n\n` +
+        `Backend URL: ${BACKEND_URL}\n` +
+        `WebSocket URL: ${WS_URL}\n\n` +
+        `Error: ${error.message || 'Connection failed'}\n\n` +
+        `Please check:\n` +
+        `1. Backend service is running in Railway\n` +
+        `2. Backend URL is correct\n` +
+        `3. Network connection is active\n` +
+        `4. Backend service logs for errors`;
+    
+    alert(errorMsg);
 });
 
 // Connect socket on page load and auto-join default class

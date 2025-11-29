@@ -74,8 +74,11 @@ const socket = io(WS_URL, {
     autoConnect: false,
     reconnection: true,
     reconnectionDelay: 1000,
-    reconnectionAttempts: 5,
-    timeout: 10000 // 10 seconds timeout
+    reconnectionAttempts: 10, // More attempts for mobile
+    timeout: 20000, // 20 seconds timeout for mobile networks
+    transports: ['websocket', 'polling'], // Try both transports
+    upgrade: true,
+    rememberUpgrade: true
 });
 
 let stream = null;
