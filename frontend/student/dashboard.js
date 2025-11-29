@@ -10,32 +10,58 @@ const port = window.location.port;
 // Option 3: Use service name for Railway internal discovery (if same project)
 let BACKEND_URL;
 
-// Check for Railway environment variable or explicit backend URL
-if (window.EMOTION_BACKEND_URL) {
+// Priority 1: Check for meta tag (set by Railway or manually)
+const backendUrlMeta = document.querySelector('meta[name="backend-url"]');
+if (backendUrlMeta && backendUrlMeta.content && backendUrlMeta.content.trim()) {
+    BACKEND_URL = backendUrlMeta.content.trim();
+    console.log("✅ Using backend URL from meta tag:", BACKEND_URL);
+}
+// Priority 2: Check for window variable (set by Railway or manually)
+else if (window.EMOTION_BACKEND_URL) {
     BACKEND_URL = window.EMOTION_BACKEND_URL;
-} else if (hostname === 'localhost' || hostname.match(/^192\.168\.|^10\.|^172\./)) {
+    console.log("✅ Using backend URL from window variable:", BACKEND_URL);
+}
+// Priority 3: Local network detection
+else if (hostname === 'localhost' || hostname.match(/^192\.168\.|^10\.|^172\./)) {
     // Local network - use explicit port
     const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
     BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
-} else if (hostname.includes('railway.app')) {
+    console.log("✅ Using local network backend URL:", BACKEND_URL);
+}
+// Priority 4: Railway deployment - try to detect
+else if (hostname.includes('railway.app')) {
     // Railway deployment - services are separate
     // Railway HTTPS URLs don't use port numbers (they use port 443 automatically)
-    // If frontend is emotion-frontend.railway.app, backend is emotion-backend.railway.app
+    // Try common patterns:
     if (hostname.includes('emotion-frontend')) {
-        // Replace 'emotion-frontend' with 'emotion-backend' - NO PORT NUMBER for HTTPS
+        // Pattern: emotion-frontend.railway.app -> emotion-backend.railway.app
         const backendHostname = hostname.replace('emotion-frontend', 'emotion-backend');
         BACKEND_URL = `${protocol}//${backendHostname}`;
+        console.log("✅ Detected Railway backend URL (pattern match):", BACKEND_URL);
+    } else if (hostname.includes('frontend')) {
+        // Pattern: *-frontend.railway.app -> *-backend.railway.app
+        const backendHostname = hostname.replace('frontend', 'backend');
+        BACKEND_URL = `${protocol}//${backendHostname}`;
+        console.log("✅ Detected Railway backend URL (frontend->backend):", BACKEND_URL);
     } else {
-        // Fallback: try to use same hostname (might work if services share domain)
-        // Or use explicit backend URL if known
+        // Custom Railway domain - cannot auto-detect
+        // Show error and instructions
+        console.error("❌ Cannot auto-detect backend URL for Railway domain:", hostname);
+        console.error("📋 Please set backend URL manually:");
+        console.error("   1. Get your backend URL from Railway dashboard");
+        console.error("   2. Add meta tag: <meta name='backend-url' content='https://your-backend.railway.app'>");
+        console.error("   3. Or set window.EMOTION_BACKEND_URL in HTML");
+        
+        // Try same hostname as fallback (might work if behind reverse proxy)
         const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
         BACKEND_URL = `${protocol}//${hostname}${port ? ':' + port : ''}`;
-        console.warn("⚠️ Could not determine backend URL from hostname. Using:", BACKEND_URL);
+        console.warn("⚠️ Using fallback backend URL (may not work):", BACKEND_URL);
     }
 } else {
     // Other cloud deployments - try same domain with port
     const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
     BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
+    console.log("✅ Using default backend URL:", BACKEND_URL);
 }
 
 // Log backend URL for debugging
