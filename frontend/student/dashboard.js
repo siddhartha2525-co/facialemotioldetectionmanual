@@ -161,13 +161,17 @@ async function enableCamera() {
         const videoElement = document.getElementById("localVideo");
         if (videoElement) {
             videoElement.srcObject = stream;
-            videoElement.play().catch(e => console.warn("Video play error:", e));
+            await videoElement.play().catch(e => {
+                console.warn("Video play error:", e);
+                // Try again after a short delay
+                setTimeout(() => videoElement.play().catch(console.warn), 100);
+            });
         }
         cameraEnabled = true;
         
-        // Notify teacher that camera is enabled
+        // Notify teacher that camera is enabled (if socket is connected)
         const classId = document.getElementById("classId").value;
-        if (socket.connected && classId) {
+        if (socket && socket.connected && classId) {
             socket.emit("camera_state", {
                 studentId: student.email,
                 name: student.name,
@@ -176,8 +180,8 @@ async function enableCamera() {
             });
         }
         
-        // Start video stream if joined
-        if (socket.connected) {
+        // Start video stream if socket is connected
+        if (socket && socket.connected) {
             if (videoStreamInterval) clearInterval(videoStreamInterval);
             videoStreamInterval = setInterval(sendVideoStream, 150);
         }
@@ -186,6 +190,8 @@ async function enableCamera() {
             statusEl.innerText = "Camera enabled ✓";
             statusEl.style.color = "#10b981";
         }
+        
+        console.log("✅ Camera enabled successfully");
     } catch (err) {
         console.error("Camera error:", err);
         cameraEnabled = false;
@@ -342,38 +348,63 @@ document.getElementById("joinClassBtn").onclick = async () => {
 
     // Connect socket if not connected
     if (!socket.connected) {
-        socket.connect();
-        
-        // Wait for connection
-        await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error("Connection timeout"));
-            }, 5000);
+        try {
+            socket.connect();
             
-            socket.once("connect", () => {
-                clearTimeout(timeout);
-                resolve();
+            // Wait for connection with longer timeout for mobile networks
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    statusEl.innerText = "❌ Connection timeout. Please check your network and try again.";
+                    statusEl.style.color = "red";
+                    reject(new Error("Connection timeout"));
+                }, 15000); // 15 seconds for mobile networks
+                
+                socket.once("connect", () => {
+                    clearTimeout(timeout);
+                    console.log("✅ Socket connected successfully");
+                    resolve();
+                });
+                
+                socket.once("connect_error", (err) => {
+                    clearTimeout(timeout);
+                    console.error("❌ Connection error during join:", err);
+                    console.error("❌ Backend URL:", BACKEND_URL);
+                    console.error("❌ WebSocket URL:", WS_URL);
+                    statusEl.innerText = `❌ Failed to connect to backend.\n\nBackend: ${BACKEND_URL}\n\nPlease check:\n1. Backend service is running in Railway\n2. Network connection is active\n3. Backend URL is correct`;
+                    statusEl.style.color = "red";
+                    reject(err);
+                });
             });
-            
-            socket.once("connect_error", (err) => {
-                clearTimeout(timeout);
-                console.error("❌ Connection error during join:", err);
-                console.error("❌ Backend URL:", BACKEND_URL);
-                console.error("❌ WebSocket URL:", WS_URL);
-                statusEl.innerText = `❌ Failed to connect to backend.\n\nBackend: ${BACKEND_URL}\n\nPlease check:\n1. Backend service is running\n2. Network connection is active`;
-                statusEl.style.color = "red";
-                reject(err);
-            });
-        });
+        } catch (err) {
+            console.error("❌ Error connecting socket:", err);
+            statusEl.innerText = `❌ Connection failed: ${err.message || "Unknown error"}`;
+            statusEl.style.color = "red";
+            return; // Stop here if connection fails
+        }
     }
 
-    statusEl.innerText = "Joining class...";
+    // Verify socket is connected before joining
+    if (!socket.connected) {
+        statusEl.innerText = "❌ Not connected to server. Please try again.";
+        statusEl.style.color = "red";
+        return;
+    }
     
-    socket.emit("join_class", {
-        studentId: student.email,
-        name: student.name,
-        classId
-    });
+    statusEl.innerText = "Joining class...";
+    statusEl.style.color = "#6b7280";
+    
+    try {
+        socket.emit("join_class", {
+            studentId: student.email,
+            name: student.name,
+            classId
+        });
+        console.log("✅ Join class request sent");
+    } catch (err) {
+        console.error("❌ Error sending join request:", err);
+        statusEl.innerText = "❌ Failed to join class: " + (err.message || "Unknown error");
+        statusEl.style.color = "red";
+    }
 };
 
 /* ---------- Snapshot sending ---------- */
@@ -522,14 +553,10 @@ socket.on("teacher_video_stopped", () => {
 socket.on("connect_error", (error) => {
     console.error("❌ Socket connection error:", error);
     console.error("❌ Attempted to connect to:", WS_URL);
+    console.error("❌ Backend URL:", BACKEND_URL);
     const statusEl = document.getElementById("statusText");
     if (statusEl) {
-        statusEl.innerText = `❌ Connection failed. Backend: ${BACKEND_URL}`;
-        statusEl.style.color = "red";
-    }
-    const statusEl = document.getElementById("statusText");
-    if (statusEl) {
-        statusEl.innerText = "❌ Connection failed: " + (error.message || "Unable to connect to server");
+        statusEl.innerText = `❌ Connection failed. Backend: ${BACKEND_URL}\n\nPlease check:\n1. Backend service is running\n2. Network connection is active`;
         statusEl.style.color = "red";
     }
 });
