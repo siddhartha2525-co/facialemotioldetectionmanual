@@ -1,0 +1,11 @@
+# Railway configuration file
+# Railway will automatically detect docker-compose.yml and deploy all services
+
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+startCommand = ""
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
