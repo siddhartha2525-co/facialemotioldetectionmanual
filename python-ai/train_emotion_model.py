@@ -400,7 +400,12 @@ def main():
     print("\n" + "="*50)
     print("Initializing model...")
     print("="*50)
-    model = EmotionResNet34(num_classes=CONFIG['num_classes'], pretrained=True)
+    try:
+        model = EmotionResNet34(num_classes=CONFIG['num_classes'], pretrained=True)
+    except Exception as e:
+        print(f"⚠️  Warning: Could not load pretrained weights: {e}")
+        print("   Using model without pretrained weights (will train from scratch)")
+        model = EmotionResNet34(num_classes=CONFIG['num_classes'], pretrained=False)
     model = model.to(CONFIG['device'])
     
     # Loss and optimizer
@@ -413,7 +418,7 @@ def main():
     
     # Learning rate scheduler
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.5, patience=5, verbose=True
+        optimizer, mode='min', factor=0.5, patience=5
     )
     
     # Training loop
@@ -445,6 +450,9 @@ def main():
         
         # Update learning rate
         scheduler.step(val_loss)
+        current_lr = optimizer.param_groups[0]['lr']
+        if current_lr != CONFIG['learning_rate']:
+            print(f"   Learning rate updated to: {current_lr:.6f}")
         
         # Save history
         train_history['train_loss'].append(train_loss)
