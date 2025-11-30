@@ -27,7 +27,7 @@ from emotion_mapping import (
 CONFIG = {
     'image_size': 112,  # 96x96 or 112x112 for optimal performance
     'batch_size': 64,
-    'epochs': 80,
+    'epochs': 20,  # Reduced to 20 for faster training (~6-8 hours). Can continue training later!
     'learning_rate': 1e-4,
     'num_classes': 7,
     'device': 'cuda' if torch.cuda.is_available() else 'cpu',
