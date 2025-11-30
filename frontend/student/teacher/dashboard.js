@@ -79,12 +79,13 @@ const socket = io(WS_URL, {
 });
 
 let selectedStudentId = null;
-let studentsData = new Map(); // studentId -> { name, emotion, engagement, confidence, studentId, timeline, avgEngagement, image, cameraEnabled }
+let studentsData = new Map(); // studentId -> { name, emotion, engagement, confidence, studentId, timeline, avgEngagement, image, cameraEnabled, confusionScore, confusionLevel }
 let studentCards = new Map(); // studentId -> { cardElement, imageElement }
 let recentEvents = [];
 let detectionActive = false;
 let teacherStream = null;
 let teacherVideoInterval = null;
+let confusionAlerts = []; // Array of recent confusion alerts
 
 // Load user info
 const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -471,7 +472,9 @@ socket.on("emotion_update", (data) => {
             samples: 0,
             totalEngagement: 0,
             image: null,
-            cameraEnabled: false
+            cameraEnabled: false,
+            confusionScore: 0,
+            confusionLevel: 'NONE'
         });
     }
 
@@ -479,6 +482,12 @@ socket.on("emotion_update", (data) => {
     student.emotion = normalizedEmotion;
     student.engagement = engagement || 0;
     student.confidence = confidence || 0;
+    
+    // Update confusion data if provided
+    if (data.confusionScore !== undefined) {
+        student.confusionScore = data.confusionScore;
+        student.confusionLevel = data.confusionLevel || 'NONE';
+    }
     // Don't update image from emotion_update - video stream handles display
     // Detection snapshots should not affect the displayed video
     
@@ -738,6 +747,19 @@ function updateStudentGrid() {
             </div>`;
         }
 
+        // Confusion indicator HTML
+        const confusionScore = student.confusionScore || 0;
+        const confusionLevel = student.confusionLevel || 'NONE';
+        let confusionBadge = '';
+        if (confusionScore >= 20) {
+            const confusionColor = confusionLevel === 'CRITICAL' ? '#ef4444' : 
+                                  confusionLevel === 'HIGH' ? '#f59e0b' : 
+                                  confusionLevel === 'MEDIUM' ? '#3b82f6' : '#6b7280';
+            confusionBadge = `<div class="confusion-badge" style="background: ${confusionColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-left: 4px;">
+                ⚠️ ${confusionLevel}
+            </div>`;
+        }
+        
         card.innerHTML = `
             ${videoHtml}
             <div class="student-info">
@@ -746,7 +768,10 @@ function updateStudentGrid() {
                     <div class="emotion-tag" style="background: ${emotionColor.bg}; color: ${emotionColor.text};">
                         ${emotionTag}
                     </div>
-                    <div class="engagement-percent">${student.engagement}%</div>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <div class="engagement-percent">${student.engagement}%</div>
+                        ${confusionBadge}
+                    </div>
                 </div>
             </div>
         `;
@@ -794,6 +819,58 @@ function updateDetailsPanel(studentId) {
     }
     const studentIdNum = Math.abs(hash).toString().substring(0, 5).padStart(5, '0');
     
+    // Confusion analysis section
+    const confusionScore = student.confusionScore || 0;
+    const confusionLevel = student.confusionLevel || 'NONE';
+    const confusionColor = confusionLevel === 'CRITICAL' ? '#ef4444' : 
+                           confusionLevel === 'HIGH' ? '#f59e0b' : 
+                           confusionLevel === 'MEDIUM' ? '#3b82f6' : 
+                           confusionLevel === 'LOW' ? '#6b7280' : '#10b981';
+    
+    let confusionHtml = '';
+    if (confusionScore > 0) {
+        confusionHtml = `
+            <div style="margin-top: 20px; padding: 16px; background: #f9fafb; border-radius: 8px; border-left: 4px solid ${confusionColor};">
+                <h4 style="margin: 0 0 12px 0; color: ${confusionColor}; font-size: 16px; font-weight: 600;">
+                    ⚠️ Confusion Detection
+                </h4>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Confusion Score</div>
+                        <div style="font-size: 24px; font-weight: 700; color: ${confusionColor};">
+                            ${confusionScore}%
+                        </div>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Confusion Level</div>
+                        <div style="font-size: 18px; font-weight: 600; color: ${confusionColor};">
+                            ${confusionLevel}
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 12px;">
+                    <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Confusion Indicator</div>
+                    <div style="width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                        <div style="width: ${confusionScore}%; height: 100%; background: ${confusionColor}; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+                ${confusionScore >= 60 ? `
+                    <div style="margin-top: 12px; padding: 8px; background: #fef2f2; border-radius: 4px; border: 1px solid #fecaca;">
+                        <div style="font-size: 12px; color: #991b1b; font-weight: 600;">⚠️ High Confusion Detected</div>
+                        <div style="font-size: 11px; color: #7f1d1d; margin-top: 4px;">
+                            This student may need additional support. Consider:
+                            <ul style="margin: 4px 0 0 16px; padding: 0;">
+                                <li>Asking if they need clarification</li>
+                                <li>Providing additional examples</li>
+                                <li>Checking their understanding</li>
+                            </ul>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+    
     let timelineHtml = "";
     if (student.timeline.length > 0) {
         timelineHtml = student.timeline.map(item => `
@@ -821,6 +898,7 @@ function updateDetailsPanel(studentId) {
             <span class="detail-label">Average engagement:</span>
             <span class="detail-value">${student.avgEngagement}%</span>
         </div>
+        ${confusionHtml}
         <h3 style="margin-top: 24px; margin-bottom: 12px;">Recent Timeline</h3>
         <div class="timeline-container">
             ${timelineHtml}

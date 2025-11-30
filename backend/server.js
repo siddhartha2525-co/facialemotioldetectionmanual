@@ -70,6 +70,108 @@ const classAggregators = new Map(); // classId -> Map(studentId -> agg)
 const detectionActive = new Map(); // classId -> boolean
 const activeClasses = new Set(); // classId -> tracks classes with active teachers
 
+/* ---------- Confusion Detection System ---------- */
+const confusionData = new Map(); // studentId -> { emotions: [], engagements: [], doubts: [], raiseHands: [], lastUpdate: Date }
+const CONFUSION_WINDOW = 30000; // 30 seconds window for analysis
+const CONFUSION_THRESHOLD = 60; // Confusion score threshold (0-100)
+
+// Track confusion signals for each student
+function updateConfusionData(studentId, emotion, engagement, hasDoubt = false, hasRaiseHand = false) {
+  if (!confusionData.has(studentId)) {
+    confusionData.set(studentId, {
+      emotions: [],
+      engagements: [],
+      doubts: [],
+      raiseHands: [],
+      lastUpdate: new Date()
+    });
+  }
+  
+  const data = confusionData.get(studentId);
+  const now = new Date();
+  
+  // Clean old data (outside 30 second window)
+  const cutoff = now.getTime() - CONFUSION_WINDOW;
+  
+  data.emotions = data.emotions.filter(e => e.timestamp > cutoff);
+  data.engagements = data.engagements.filter(e => e.timestamp > cutoff);
+  data.doubts = data.doubts.filter(e => e.timestamp > cutoff);
+  data.raiseHands = data.raiseHands.filter(e => e.timestamp > cutoff);
+  
+  // Add new data
+  data.emotions.push({ emotion, timestamp: now.getTime() });
+  data.engagements.push({ engagement, timestamp: now.getTime() });
+  
+  if (hasDoubt) {
+    data.doubts.push({ timestamp: now.getTime() });
+  }
+  if (hasRaiseHand) {
+    data.raiseHands.push({ timestamp: now.getTime() });
+  }
+  
+  data.lastUpdate = now;
+}
+
+// Calculate confusion score based on multiple signals
+function calculateConfusionScore(studentId) {
+  const data = confusionData.get(studentId);
+  if (!data || data.emotions.length === 0) {
+    return 0; // No data = no confusion
+  }
+  
+  let score = 0;
+  const weights = {
+    negativeEmotions: 40,  // 40% weight
+    engagementDrop: 30,     // 30% weight
+    doubts: 20,             // 20% weight
+    raiseHands: 10          // 10% weight
+  };
+  
+  // 1. Negative Emotions Signal (SAD, FEAR, ANGRY)
+  const negativeEmotions = data.emotions.filter(e => 
+    ['sad', 'fear', 'angry', 'disgust'].includes(e.emotion.toLowerCase())
+  );
+  const negativeEmotionRatio = negativeEmotions.length / Math.max(data.emotions.length, 1);
+  const negativeEmotionScore = Math.min(negativeEmotionRatio * 100, 100);
+  score += (negativeEmotionScore * weights.negativeEmotions) / 100;
+  
+  // 2. Engagement Drop Signal
+  if (data.engagements.length >= 2) {
+    const recentEngagement = data.engagements.slice(-5).reduce((sum, e) => sum + e.engagement, 0) / Math.min(5, data.engagements.length);
+    const earlierEngagement = data.engagements.slice(0, Math.max(1, data.engagements.length - 5)).reduce((sum, e) => sum + e.engagement, 0) / Math.max(1, data.engagements.length - 5);
+    
+    if (earlierEngagement > 0) {
+      const engagementDrop = ((earlierEngagement - recentEngagement) / earlierEngagement) * 100;
+      const engagementDropScore = Math.max(0, Math.min(engagementDrop, 100));
+      score += (engagementDropScore * weights.engagementDrop) / 100;
+    }
+  }
+  
+  // 3. Doubts Signal (frequent doubts = confusion)
+  const doubtCount = data.doubts.length;
+  const doubtScore = Math.min((doubtCount / 3) * 100, 100); // 3+ doubts in 30s = high confusion
+  score += (doubtScore * weights.doubts) / 100;
+  
+  // 4. Raise Hand Signal (frequent raise hands = confusion)
+  const raiseHandCount = data.raiseHands.length;
+  const raiseHandScore = Math.min((raiseHandCount / 5) * 100, 100); // 5+ raise hands in 30s = confusion
+  score += (raiseHandScore * weights.raiseHands) / 100;
+  
+  // Normalize to 0-100
+  score = Math.min(Math.max(score, 0), 100);
+  
+  return Math.round(score);
+}
+
+// Get confusion level (LOW, MEDIUM, HIGH, CRITICAL)
+function getConfusionLevel(score) {
+  if (score >= 80) return 'CRITICAL';
+  if (score >= 60) return 'HIGH';
+  if (score >= 40) return 'MEDIUM';
+  if (score >= 20) return 'LOW';
+  return 'NONE';
+}
+
 /* ---------- Aggregation helpers ---------- */
 function ensureStudentAgg(classId, studentId, name) {
   if (!classAggregators.has(classId)) classAggregators.set(classId, new Map());
@@ -253,6 +355,28 @@ io.on('connection', (socket) => {
   socket.on('raise_hand', (d) => {
     // pass to the class room so teacher(s) receive
     if (d && d.classId) {
+      // Track raise hand for confusion detection
+      if (d.studentId) {
+        updateConfusionData(d.studentId, null, null, false, true);
+        // Calculate and emit confusion update
+        const confusionScore = calculateConfusionScore(d.studentId);
+        const confusionLevel = getConfusionLevel(confusionScore);
+        if (confusionScore >= CONFUSION_THRESHOLD) {
+          io.to(d.classId).emit('confusion_alert', {
+            studentId: d.studentId,
+            name: d.name,
+            confusionScore,
+            confusionLevel,
+            reason: 'Frequent raise hands detected'
+          });
+        }
+        io.to(d.classId).emit('confusion_update', {
+          studentId: d.studentId,
+          name: d.name,
+          confusionScore,
+          confusionLevel
+        });
+      }
       io.to(d.classId).emit('raise_hand', d);
       console.log(`[raise_hand] ${d.name} (${d.studentId}) in ${d.classId}`);
     }
@@ -267,6 +391,28 @@ io.on('connection', (socket) => {
 
   socket.on('ask_doubt', (d) => {
     if (d && d.classId) {
+      // Track doubt for confusion detection
+      if (d.studentId) {
+        updateConfusionData(d.studentId, null, null, true, false);
+        // Calculate and emit confusion update
+        const confusionScore = calculateConfusionScore(d.studentId);
+        const confusionLevel = getConfusionLevel(confusionScore);
+        if (confusionScore >= CONFUSION_THRESHOLD) {
+          io.to(d.classId).emit('confusion_alert', {
+            studentId: d.studentId,
+            name: d.name,
+            confusionScore,
+            confusionLevel,
+            reason: 'Doubt question asked'
+          });
+        }
+        io.to(d.classId).emit('confusion_update', {
+          studentId: d.studentId,
+          name: d.name,
+          confusionScore,
+          confusionLevel
+        });
+      }
       io.to(d.classId).emit('ask_doubt', d);
       console.log(`[ask_doubt] ${d.name} (${d.studentId}) in ${d.classId}: ${d.doubt}`);
     }
@@ -292,6 +438,8 @@ io.on('connection', (socket) => {
     const meta = studentMap.get(socket.id);
     if (meta) {
       io.to(meta.classId).emit('student_left', { studentId: meta.studentId, name: meta.name });
+      // Clean up confusion data when student leaves
+      confusionData.delete(meta.studentId);
       studentMap.delete(socket.id);
     }
     preSnapshots.delete(socket.id);
@@ -378,6 +526,33 @@ async function processSnapshot(data, socket) {
     const nameToSend = result.name || name || 'Unknown';
     const ev = { emotion, confidence, engagement, timestamp: new Date().toISOString() };
     pushEventToAgg(classId, sid, nameToSend, ev);
+    
+    // Update confusion data with emotion and engagement
+    updateConfusionData(sid, emotion, engagement, false, false);
+    
+    // Calculate confusion score
+    const confusionScore = calculateConfusionScore(sid);
+    const confusionLevel = getConfusionLevel(confusionScore);
+    
+    // Emit confusion alert if threshold exceeded
+    if (confusionScore >= CONFUSION_THRESHOLD) {
+      io.to(classId).emit('confusion_alert', {
+        studentId: sid,
+        name: nameToSend,
+        confusionScore,
+        confusionLevel,
+        reason: `Negative emotions (${emotion}) and low engagement detected`
+      });
+    }
+    
+    // Always emit confusion update for real-time tracking
+    io.to(classId).emit('confusion_update', {
+      studentId: sid,
+      name: nameToSend,
+      confusionScore,
+      confusionLevel
+    });
+    
     // Don't include image in emotion_update - video stream handles display
     // Detection snapshots are for backend processing only
     io.to(classId).emit('emotion_update', { 
@@ -386,6 +561,8 @@ async function processSnapshot(data, socket) {
       emotion, 
       confidence, 
       engagement, 
+      confusionScore,  // Include confusion score in emotion update
+      confusionLevel,  // Include confusion level
       timestamp: new Date(), 
       box: result.box || null,
       source: source  // Include source (openface or facenet512)
