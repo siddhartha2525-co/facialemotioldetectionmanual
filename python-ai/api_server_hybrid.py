@@ -27,14 +27,16 @@ def decode_image(b64):
         arr = np.frombuffer(im_bytes, np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         
-        # Optimize image size for faster processing (max 480x360)
+        # Optimize image size for better detection accuracy (max 640x480 for optimal face detection)
+        # Larger images provide better face detail for emotion detection
         if img is not None:
             height, width = img.shape[:2]
-            max_dim = 480
+            max_dim = 640  # Increased from 480 for better accuracy
             if width > max_dim or height > max_dim:
                 scale = max_dim / max(width, height)
                 new_width = int(width * scale)
                 new_height = int(height * scale)
+                # Use INTER_AREA for downscaling (better quality)
                 img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
         
         return img
@@ -77,14 +79,15 @@ def analyze():
 
         # Skip low light check for speed - let models handle it
         
-        # Optimize image for faster processing
-        # Resize to optimal size (224x224 or maintain aspect ratio around 300px)
+        # Optimize image for better detection accuracy
+        # Use larger size (480px) for better face detail while maintaining speed
         height, width = img.shape[:2]
-        target_size = 300
+        target_size = 480  # Increased from 300 for better accuracy
         if max(width, height) > target_size:
             scale = target_size / max(width, height)
             new_width = int(width * scale)
             new_height = int(height * scale)
+            # Use INTER_AREA for downscaling (better quality than INTER_LINEAR)
             img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
         # 1) Fast-pass: Use fastest backend and model

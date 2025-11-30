@@ -321,8 +321,8 @@ async function processSnapshot(data, socket) {
   }
   processing.set(studentId, true);
   try {
-    // Reduced timeout for faster failure recovery (15s instead of 30s)
-    const resp = await axios.post(PY_API, { image, studentId, name, classId }, { timeout: 15000 });
+    // Optimized timeout for better balance (20s for higher quality images)
+    const resp = await axios.post(PY_API, { image, studentId, name, classId }, { timeout: 20000 });
     const result = resp.data || {};
     
     // Check if API returned an error

@@ -150,12 +150,13 @@ async function enableCamera() {
             throw new Error("Camera API not available. Mobile browsers require HTTPS for camera access.");
         }
         
-        // Request camera with better constraints for mobile
+        // Request camera with higher quality constraints for better detection
         const constraints = {
             video: {
                 facingMode: 'user', // Front camera on mobile
-                width: { ideal: 640 },
-                height: { ideal: 480 }
+                width: { ideal: 1280, min: 640 },  // Higher resolution for better quality
+                height: { ideal: 720, min: 480 },  // Higher resolution for better quality
+                frameRate: { ideal: 30, min: 15 }  // Higher frame rate for smoother video
             }
         };
         
@@ -412,19 +413,41 @@ document.getElementById("joinClassBtn").onclick = async () => {
 
 /* ---------- Snapshot sending ---------- */
 
-// Send video stream for display (smooth video)
+// Send video stream for display (smooth video with better quality)
 function sendVideoStream() {
     if (!stream || !cameraEnabled) return;
 
     const canvas = document.createElement("canvas");
     const video = document.getElementById("localVideo");
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    
+    // Use higher resolution for better display quality (640x480 minimum, upscale if needed)
+    const videoWidth = video.videoWidth || 640;
+    const videoHeight = video.videoHeight || 480;
+    
+    // Maintain aspect ratio but ensure minimum quality
+    let canvasWidth = Math.max(videoWidth, 640);
+    let canvasHeight = Math.max(videoHeight, 480);
+    
+    // Limit max size to prevent too large images (max 1280x720 for good balance)
+    const maxWidth = 1280;
+    const maxHeight = 720;
+    if (canvasWidth > maxWidth || canvasHeight > maxHeight) {
+        const scale = Math.min(maxWidth / canvasWidth, maxHeight / canvasHeight);
+        canvasWidth = Math.floor(canvasWidth * scale);
+        canvasHeight = Math.floor(canvasHeight * scale);
+    }
+    
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
     const ctx = canvas.getContext("2d");
+    
+    // Use high-quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Lower quality for smooth video streaming
-    const image = canvas.toDataURL("image/jpeg", 0.6);
+    // Higher quality for better display (0.85 for good balance of quality and size)
+    const image = canvas.toDataURL("image/jpeg", 0.85);
 
     const classId = document.getElementById("classId").value;
 
@@ -437,19 +460,46 @@ function sendVideoStream() {
 }
 
 // Send snapshot for detection (backend only, not for display)
+// Higher resolution for better detection accuracy
 function sendSnapshot() {
     if (!stream || !detectionEnabled) return;
 
     const canvas = document.createElement("canvas");
     const video = document.getElementById("localVideo");
-    // Optimized resolution for speed and accuracy balance (400x300)
-    canvas.width = 400;
-    canvas.height = 300;
+    
+    // Higher resolution for better detection accuracy (640x480 for optimal face detection)
+    // This provides better face detail for emotion detection
+    const videoWidth = video.videoWidth || 640;
+    const videoHeight = video.videoHeight || 480;
+    
+    // Use 640x480 for detection (optimal for DeepFace)
+    // Maintain aspect ratio but prioritize face detection quality
+    let canvasWidth = 640;
+    let canvasHeight = 480;
+    
+    // If video is larger, scale down maintaining aspect ratio
+    if (videoWidth > 0 && videoHeight > 0) {
+        const aspectRatio = videoWidth / videoHeight;
+        if (aspectRatio > 1) {
+            // Landscape
+            canvasHeight = Math.floor(canvasWidth / aspectRatio);
+        } else {
+            // Portrait
+            canvasWidth = Math.floor(canvasHeight * aspectRatio);
+        }
+    }
+    
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
     const ctx = canvas.getContext("2d");
+    
+    // High-quality rendering for better detection
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Optimized quality for faster transmission (0.7 is good balance)
-    const image = canvas.toDataURL("image/jpeg", 0.7);
+    // Higher quality for better detection accuracy (0.85 for optimal balance)
+    const image = canvas.toDataURL("image/jpeg", 0.85);
 
     const classId = document.getElementById("classId").value;
 
@@ -502,14 +552,14 @@ socket.on("detection_started", (data) => {
     statusEl.innerText = "Joined ✓ - Detection Active";
     statusEl.style.color = "#10b981";
     
-        // Start sending video stream for smooth display (every 150ms)
+        // Start sending video stream for smooth display with lower latency (every 100ms for smoother video)
         if (stream && cameraEnabled) {
             if (videoStreamInterval) clearInterval(videoStreamInterval);
-            videoStreamInterval = setInterval(sendVideoStream, 150);
+            videoStreamInterval = setInterval(sendVideoStream, 100);  // Reduced from 150ms for lower latency
             
-        // Start sending detection snapshots (every 1.2 seconds for better performance)
+        // Start sending detection snapshots (every 800ms for faster detection with good accuracy)
         if (interval) clearInterval(interval);
-        interval = setInterval(sendSnapshot, 1200);  // Slightly slower for better processing
+        interval = setInterval(sendSnapshot, 800);  // Reduced from 1200ms for faster detection
         }
 });
 

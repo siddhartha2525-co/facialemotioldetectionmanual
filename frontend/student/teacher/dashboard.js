@@ -364,18 +364,32 @@ socket.on("student_video_stream", (data) => {
 });
 
 // Efficiently update only the video image without recreating the card
+// Optimized for low latency and smooth video
 function updateStudentVideoImage(studentId, image) {
     const cardData = studentCards.get(studentId);
     if (cardData && cardData.imageElement) {
-        // Direct update without requestAnimationFrame for lower latency
-        // The browser will handle the image update smoothly
+        // Direct update for lowest latency - no debouncing needed
+        // Update src directly for immediate display
         if (cardData.imageElement.src !== image) {
+            // Use direct assignment for fastest update
             cardData.imageElement.src = image;
+            // Force browser to update immediately
+            cardData.imageElement.style.opacity = '0.99';
+            // Small delay to ensure smooth transition
+            setTimeout(() => {
+                if (cardData.imageElement) {
+                    cardData.imageElement.style.opacity = '1';
+                }
+            }, 10);
         }
         // Show image, hide placeholder
         const placeholder = cardData.cardElement.querySelector('.student-video-placeholder');
         if (placeholder) placeholder.style.display = 'none';
-        if (cardData.imageElement) cardData.imageElement.style.display = 'block';
+        if (cardData.imageElement) {
+            cardData.imageElement.style.display = 'block';
+            // Ensure image is visible and optimized
+            cardData.imageElement.style.imageRendering = 'auto';
+        }
     } else if (studentsData.has(studentId)) {
         // Card doesn't exist yet, need to create it
         updateStudentGrid();
