@@ -1,0 +1,18 @@
+# Environment Variables for Railway Deployment
+# Copy these into Railway dashboard → Backend Service → Variables tab
+
+PORT=5001
+
+PY_API=http://emotion-ai:8000/analyze
+
+MONGO_URI=mongodb+srv://adeshsiddhartha2005_db:Adesh141@cluster0.ap8scd3.mongodb.net/emotiondb?retryWrites=true&w=majority
+
+NODE_ENV=production
+
+# Instructions:
+# 1. In Railway dashboard, click on 'emotion-backend' service
+# 2. Go to 'Variables' tab
+# 3. Click 'New Variable' for each variable above
+# 4. Copy the variable name and value exactly as shown
+# 5. Save each variable
+

@@ -1,0 +1,38 @@
+services:
+  backend:
+    build: ./backend
+    container_name: emotion-backend
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - python_ai
+    restart: always
+    networks:
+      - emotion-net
+
+  python_ai:
+    build: ./python-ai
+    container_name: emotion-ai
+    ports:
+      - "8000:8000"
+    restart: always
+    networks:
+      - emotion-net
+
+  frontend:
+    build: ./frontend
+    container_name: emotion-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - emotion-net
+
+networks:
+  emotion-net:
+    driver: bridge
+

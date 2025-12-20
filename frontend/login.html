@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login - Facial Emotion Project</title>
+  <link rel="stylesheet" href="student/student.css">
+  <style>
+    .auth-body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #6a5af9, #8b6efd);
+    }
+
+    .login-card {
+      width: 420px;
+      padding: 32px;
+      background: white;
+      border-radius: 18px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.12);
+      text-align: center;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 800;
+      color: #1f2937;
+    }
+
+    .subtitle {
+      margin-top: -10px;
+      opacity: 0.7;
+      font-size: 15px;
+      color: #6b7280;
+    }
+
+    .input-group {
+      text-align: left;
+      margin: 18px 0;
+    }
+
+    .input-group label {
+      font-size: 14px;
+      opacity: 0.8;
+      color: #374151;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .input-group input,
+    .input-group select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 18px;
+      border: 2px solid #e2e8f0;
+      margin-top: 6px;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+
+    .input-group select {
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 18px;
+      margin-top: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 15px;
+      transition: background 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: #4f46e5;
+    }
+
+    .status-msg {
+      margin-top: 12px;
+      color: red;
+      font-size: 14px;
+    }
+
+    .success-msg {
+      color: #10b981;
+    }
+  </style>
+</head>
+
+<body class="auth-body">
+
+<div class="login-card">
+  <h1 class="title">Login</h1>
+  <p class="subtitle">Access your dashboard</p>
+
+  <div class="input-group">
+    <label>Email</label>
+    <input id="email" type="email" placeholder="Enter your email">
+  </div>
+
+  <div class="input-group">
+    <label>Password</label>
+    <input id="password" type="password" placeholder="Enter your password">
+  </div>
+
+  <div class="input-group">
+    <label>Role</label>
+    <select id="role">
+      <option value="">Select Role</option>
+      <option value="student">Student</option>
+      <option value="teacher">Teacher</option>
+    </select>
+  </div>
+
+  <button id="loginBtn" class="btn-primary">Login</button>
+
+  <p id="status" class="status-msg"></p>
+</div>
+
+<script>
+document.getElementById("loginBtn").addEventListener("click", async () => {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const role = document.getElementById("role").value;
+
+    const statusEl = document.getElementById("status");
+    statusEl.textContent = "";
+    statusEl.classList.remove("success-msg");
+
+    if (!email || !password || !role) {
+        statusEl.textContent = "Please fill all fields";
+        return;
+    }
+
+    // Simulate API call - in production, this would call your backend
+    try {
+        // For demo purposes, we'll use localStorage
+        // In production, verify credentials via backend API
+        
+        const userData = {
+            email,
+            name: email.split('@')[0], // Extract name from email for demo
+            role
+        };
+
+        localStorage.setItem("user", JSON.stringify(userData));
+        statusEl.textContent = "Login Successful";
+        statusEl.classList.add("success-msg");
+
+        // Redirect based on role
+        setTimeout(() => {
+            if (role === "student") {
+                window.location.href = "student/dashboard.html";
+            } else if (role === "teacher") {
+                window.location.href = "student/teacher/dashboard.html";
+            }
+        }, 500);
+
+    } catch (error) {
+        statusEl.textContent = "Login failed: " + error.message;
+    }
+});
+</script>
+</body>
+</html>
+
