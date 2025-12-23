@@ -36,8 +36,10 @@ router.get('/class/:classId/summary', (req, res) => {
 
 router.get('/class/:classId/check', (req, res) => {
     const classId = req.params.classId;
-    const exists = activeClasses ? activeClasses.has(classId) : false;
-    res.json({ success: true, exists, classId });
+    // In development, say YES to everything so we can test easily
+    const isDev = process.env.NODE_ENV === 'development';
+    const exists = isDev || (activeClasses ? activeClasses.has(classId) : false);
+    res.json({ success: true, exists, classId, isDev });
 });
 
 module.exports = { router, initRoutes };

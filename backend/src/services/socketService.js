@@ -192,11 +192,17 @@ function init(server) {
             if (!classId || !studentId) return socket.emit('join_ack', { status: 'error', reason: 'missing fields' });
 
             if (!activeClasses.has(classId)) {
-                return socket.emit('join_ack', {
-                    status: 'error',
-                    reason: 'class_not_found',
-                    message: 'No class exists with this Class ID.'
-                });
+                // In Development mode, allow students to join even if teacher hasn't started class
+                if (config.NODE_ENV === 'development') {
+                    console.log(`[DEV] Auto-creating class ${classId} for student join`);
+                    activeClasses.add(classId);
+                } else {
+                    return socket.emit('join_ack', {
+                        status: 'error',
+                        reason: 'class_not_found',
+                        message: 'No class exists with this Class ID.'
+                    });
+                }
             }
 
             studentMap.set(socket.id, { studentId, name, classId });
