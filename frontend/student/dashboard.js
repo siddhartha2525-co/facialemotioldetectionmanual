@@ -103,11 +103,11 @@ if (!student.name && user.email && user.role === "student") {
     localStorage.setItem("student", JSON.stringify(student));
 }
 
-if (!student.name) window.location.href = "login.html";
+if (!student.name) window.location.href = "../login.html";
 
 document.getElementById("logoutBtn").onclick = () => {
     localStorage.removeItem("student");
-    window.location.href = "login.html";
+    window.location.href = "../login.html";
 };
 
 /* ---------- Camera ---------- */
