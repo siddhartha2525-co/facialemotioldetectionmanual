@@ -10,13 +10,23 @@ const port = window.location.port;
 // Option 3: Use service name for Railway internal discovery (if same project)
 let BACKEND_URL;
 
-// Priority 1: Check for meta tag (set by Railway or manually)
-const backendUrlMeta = document.querySelector('meta[name="backend-url"]');
-if (backendUrlMeta && backendUrlMeta.content && backendUrlMeta.content.trim()) {
-    BACKEND_URL = backendUrlMeta.content.trim();
-    console.log("✅ Using backend URL from meta tag:", BACKEND_URL);
+// Priority 0: Check for manual override in localStorage (Top Priority)
+const customBackendUrl = localStorage.getItem("CUSTOM_BACKEND_URL");
+if (customBackendUrl) {
+    BACKEND_URL = customBackendUrl;
+    console.log("✅ Using custom backend URL:", BACKEND_URL);
 }
-// Priority 2: Check for window variable (set by Railway or manually)
+// Priority 1: Check for meta tag (set by Railway)
+else if (document.querySelector('meta[name="backend-url"]')) {
+    const meta = document.querySelector('meta[name="backend-url"]');
+    if (meta.content && meta.content.trim() && !meta.content.includes("railway.app")) {
+        // Only use meta if it's not the generic placeholder or if it's injected
+        // (Adjust logic as needed, but for now we trust the tag if it exists and isn't commented)
+        BACKEND_URL = meta.content.trim();
+        console.log("✅ Using backend URL from meta tag:", BACKEND_URL);
+    }
+}
+// Priority 2: Check for window variable
 else if (window.EMOTION_BACKEND_URL) {
     BACKEND_URL = window.EMOTION_BACKEND_URL;
     console.log("✅ Using backend URL from window variable:", BACKEND_URL);
@@ -30,38 +40,34 @@ else if (hostname === 'localhost' || hostname.match(/^192\.168\.|^10\.|^172\./))
 }
 // Priority 4: Railway deployment - try to detect
 else if (hostname.includes('railway.app')) {
-    // Railway deployment - services are separate
-    // Railway HTTPS URLs don't use port numbers (they use port 443 automatically)
-    // Try common patterns:
     if (hostname.includes('emotion-frontend')) {
-        // Pattern: emotion-frontend.railway.app -> emotion-backend.railway.app
         const backendHostname = hostname.replace('emotion-frontend', 'emotion-backend');
         BACKEND_URL = `${protocol}//${backendHostname}`;
-        console.log("✅ Detected Railway backend URL (pattern match):", BACKEND_URL);
     } else if (hostname.includes('frontend')) {
-        // Pattern: *-frontend.railway.app -> *-backend.railway.app
         const backendHostname = hostname.replace('frontend', 'backend');
         BACKEND_URL = `${protocol}//${backendHostname}`;
-        console.log("✅ Detected Railway backend URL (frontend->backend):", BACKEND_URL);
     } else {
-        // Custom Railway domain - cannot auto-detect
-        // Show error and instructions
-        console.error("❌ Cannot auto-detect backend URL for Railway domain:", hostname);
-        console.error("📋 Please set backend URL manually:");
-        console.error("   1. Get your backend URL from Railway dashboard");
-        console.error("   2. Add meta tag: <meta name='backend-url' content='https://your-backend.railway.app'>");
-        console.error("   3. Or set window.EMOTION_BACKEND_URL in HTML");
-
-        // Try same hostname as fallback (might work if behind reverse proxy)
-        const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
-        BACKEND_URL = `${protocol}//${hostname}${port ? ':' + port : ''}`;
-        console.warn("⚠️ Using fallback backend URL (may not work):", BACKEND_URL);
+        console.error("❌ Cannot auto-detect backend URL");
+        BACKEND_URL = null;
     }
 } else {
-    // Other cloud deployments - try same domain with port
+    // Other cloud deployments
     const BACKEND_PORT = window.EMOTION_BACKEND_PORT || '5001';
     BACKEND_URL = `${protocol}//${hostname}:${BACKEND_PORT}`;
-    console.log("✅ Using default backend URL:", BACKEND_URL);
+}
+
+// Function to prompt for manual backend URL
+window.promptForBackend = function () {
+    const url = prompt("Please enter your Backend URL (e.g., https://my-app.railway.app):", localStorage.getItem("CUSTOM_BACKEND_URL") || "");
+    if (url && url.startsWith("http")) {
+        localStorage.setItem("CUSTOM_BACKEND_URL", url.trim());
+        alert("Backend URL saved! Reloading...");
+        window.location.reload();
+    }
+};
+
+if (!BACKEND_URL) {
+    console.warn("⚠️ No Backend URL found. Please configure it.");
 }
 
 // Log backend URL for debugging
@@ -604,14 +610,17 @@ socket.on("teacher_video_stopped", () => {
 });
 
 // Handle connection errors
+// Handle connection errors
 socket.on("connect_error", (error) => {
     console.error("❌ Socket connection error:", error);
-    console.error("❌ Attempted to connect to:", WS_URL);
-    console.error("❌ Backend URL:", BACKEND_URL);
     const statusEl = document.getElementById("statusText");
     if (statusEl) {
-        statusEl.innerText = `❌ Connection failed. Backend: ${BACKEND_URL}\n\nPlease check:\n1. Backend service is running\n2. Network connection is active`;
-        statusEl.style.color = "red";
+        statusEl.innerHTML = `⚠️ Connection Failed <button onclick="window.promptForBackend()" style="margin-left:10px;padding:2px 8px;cursor:pointer;background:#ef4444;color:white;border:none;border-radius:4px;">Fix Connection</button>`;
+        statusEl.style.color = "#ef4444";
+
+        // Add detailed debug info in console
+        console.log("Backend URL:", BACKEND_URL);
+        console.log("WS URL:", WS_URL);
     }
 });
 
